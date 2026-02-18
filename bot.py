@@ -40,5 +40,5 @@ async def post_tech_news():
             last_link = entry.link
             break
 
-
+print("Token loaded:", DISCORD_TOKEN is not None)
 client.run(DISCORD_TOKEN)
