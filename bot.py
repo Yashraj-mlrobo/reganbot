@@ -1,33 +1,49 @@
 import os
 import discord
 import feedparser
-from discord.ext import tasks
+import asyncio
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-
+TOKEN = os.getenv("TOKEN")
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))  # Must be set in Railway
 
 intents = discord.Intents.default()
-client = discord.Client(intents=intents)
+intents.message_content = True
+intents.members = True
+
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 RSS_URL = "https://techcrunch.com/feed/"
 last_link = None
 
 
-@client.event
+# ===== LOAD COGS =====
+async def load_extensions():
+    for file in os.listdir("./commands"):
+        if file.endswith(".py"):
+            await bot.load_extension(f"commands.{file[:-3]}")
+            print(f"Loaded {file}")
+
+
+# ===== EVENTS =====
+@bot.event
 async def on_ready():
-    print(f"Logged in as {client.user}")
+    await bot.tree.sync()
+    print(f"Logged in as {bot.user}")
+    print("Bot is ready.")
     post_tech_news.start()
 
 
+# ===== AUTO TECH NEWS =====
 @tasks.loop(minutes=30)
 async def post_tech_news():
     global last_link
-    
+
     feed = feedparser.parse(RSS_URL)
-    channel = client.get_channel(CHANNEL_ID)
+    channel = bot.get_channel(CHANNEL_ID)
 
     if channel is None:
         print("Channel not found!")
@@ -40,5 +56,14 @@ async def post_tech_news():
             last_link = entry.link
             break
 
-print("Token loaded:", DISCORD_TOKEN is not None)
-client.run(DISCORD_TOKEN)
+
+# ===== MAIN RUNNER =====
+async def main():
+    async with bot:
+        await load_extensions()
+        await bot.start(TOKEN)
+
+
+if __name__ == "__main__":
+    print("Token loaded:", TOKEN is not None)
+    asyncio.run(main())
